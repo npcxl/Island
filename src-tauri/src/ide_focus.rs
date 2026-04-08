@@ -24,8 +24,7 @@ mod win {
     use super::IdeFocusBarPayload;
     use std::sync::{Mutex, OnceLock};
     use std::time::{Duration, Instant};
-    use tauri::Emitter;
-    use windows::core::Interface;
+    use tauri::{AppHandle, Emitter};
     use windows::Win32::Foundation::{CloseHandle, HWND};
     use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
     use windows::Win32::System::Threading::{
