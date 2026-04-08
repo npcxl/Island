@@ -35,8 +35,8 @@ mod win {
         IUIAutomationValuePattern, UIA_ButtonControlTypeId, UIA_ValuePatternId,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, SetForegroundWindow,
-        ShowWindow, SW_RESTORE,
+        GetAncestor, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, SetForegroundWindow,
+        ShowWindow, GA_ROOT, SW_RESTORE,
     };
 
     static LAST_EMITTED: OnceLock<Mutex<Option<IdeFocusBarPayload>>> = OnceLock::new();
@@ -111,8 +111,51 @@ mod win {
         match name {
             "cursor.exe" => Some(IdeKind::Cursor),
             "code.exe" => Some(IdeKind::VsCode),
+            "code-insiders.exe" => Some(IdeKind::VsCode),
             _ => None,
         }
+    }
+
+    unsafe fn root_hwnd(hwnd: HWND) -> HWND {
+        if hwnd.is_invalid() {
+            return hwnd;
+        }
+        let r = GetAncestor(hwnd, GA_ROOT);
+        if r.is_invalid() {
+            hwnd
+        } else {
+            r
+        }
+    }
+
+    /// 进程名读失败（权限/沙箱）时，用窗口标题兜底（须含品牌字样，避免误判）
+    fn ide_kind_from_title(title: &str) -> Option<IdeKind> {
+        if title.contains("Visual Studio Code")
+            || title.contains("Code - Insiders")
+            || title.contains("Visual Studio Code - Insiders")
+        {
+            return Some(IdeKind::VsCode);
+        }
+        if title.contains("Cursor") {
+            return Some(IdeKind::Cursor);
+        }
+        None
+    }
+
+    /// 综合：根窗口 + 进程名（优先）+ 标题/类名（兜底）
+    unsafe fn detect_ide_kind(hwnd: HWND) -> Option<IdeKind> {
+        if hwnd.is_invalid() || !IsWindow(Some(hwnd)).as_bool() {
+            return None;
+        }
+        let root = root_hwnd(hwnd);
+        let pid = hwnd_pid(root);
+        if let Some(exe) = exe_base_name_lower(pid) {
+            if let Some(k) = classify_exe(&exe) {
+                return Some(k);
+            }
+        }
+        let title = read_window_title(root);
+        ide_kind_from_title(&title)
     }
 
     fn ide_kind_label(k: IdeKind) -> (&'static str, &'static str) {
@@ -128,15 +171,6 @@ mod win {
         pid
     }
 
-    unsafe fn is_ide_hwnd(hwnd: HWND) -> Option<IdeKind> {
-        if hwnd.is_invalid() || !IsWindow(Some(hwnd)).as_bool() {
-            return None;
-        }
-        let pid = hwnd_pid(hwnd);
-        let exe = exe_base_name_lower(pid)?;
-        classify_exe(&exe)
-    }
-
     fn strip_ide_title(title: &str, kind: IdeKind) -> String {
         const SUFFIXES: &[&str] = &[
             " - Cursor",
@@ -144,6 +178,8 @@ mod win {
             " - Visual Studio Code",
             " – Visual Studio Code",
             " - Code",
+            " - Code - Insiders",
+            " – Code - Insiders",
         ];
         let mut s = title.to_string();
         for suf in SUFFIXES {
@@ -362,11 +398,12 @@ mod win {
 
     pub unsafe fn poll_payload() -> Option<IdeFocusBarPayload> {
         let fg = GetForegroundWindow();
-        if let Some(kind) = is_ide_hwnd(fg) {
+        if let Some(kind) = detect_ide_kind(fg) {
+            let root = root_hwnd(fg);
             if let Ok(mut g) = LAST_IDE_HWND.lock() {
-                *g = Some(fg.0 as isize);
+                *g = Some(root.0 as isize);
             }
-            return Some(build_for_hwnd(fg, kind, false));
+            return Some(build_for_hwnd(root, kind, false));
         }
 
         let tracked = LAST_IDE_HWND.lock().ok().and_then(|g| *g)?;
@@ -377,7 +414,7 @@ mod win {
             }
             return None;
         }
-        if is_ide_hwnd(hwnd).is_none() {
+        if detect_ide_kind(hwnd).is_none() {
             if let Ok(mut g) = LAST_IDE_HWND.lock() {
                 *g = None;
             }
@@ -387,7 +424,7 @@ mod win {
             // 未最小化但已失焦：不占用岛（用户能在后台看到窗口）
             return None;
         }
-        let kind = is_ide_hwnd(hwnd)?;
+        let kind = detect_ide_kind(hwnd)?;
         Some(build_for_hwnd(hwnd, kind, true))
     }
 

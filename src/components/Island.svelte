@@ -26,6 +26,8 @@
    *   "charging" — 仅充电
    *   "media"    — 有音乐（不区分是否充电）
    *   "expanded" — 点击展开
+   *   "chrome_focus" — Chrome 前台
+   *   "ide_focus" — Cursor / VS Code 前台或最小化托底
    *
    * overlay（瞬时覆盖层，不改变 mode）:
    *   null | { type: "VolumeChange"|"CapsLock"|"LowBattery"|"WeChat"|"AppToast", ... }
@@ -208,11 +210,14 @@
   // ── 模式决策 ────────────────────────────────────────────
   /** @type {null | { page_title: string, url?: string | null, has_sessions: boolean, audible: boolean, chrome_muted: boolean }} */
   let chromeBar = $state(null);
+  /** @type {null | { app_id: string, display_name: string, window_title: string, context_line?: string | null, needs_attention: boolean, minimized: boolean }} */
+  let ideBar = $state(null);
 
   function resolveMode() {
     if (mode === "expanded") return;
     // Chrome 在前台时优先显示浏览器条；否则只要 SMTC 有歌就会一直占 media，用户在 Chrome 里永远看不到跟随条
     if (chromeBar)                           { if (mode !== "chrome_focus") switchMode("chrome_focus"); }
+    else if (ideBar)                         { if (mode !== "ide_focus")    switchMode("ide_focus");    }
     else if (hasMedia)                       { if (mode !== "media")        switchMode("media");        }
     else if (battery.charging)              { if (mode !== "charging")     switchMode("charging");     }
     else                                    { if (mode !== "idle")         switchMode("idle");         }
@@ -224,6 +229,30 @@
     const u = String(payload?.url ?? "").trim();
     if (!u) bookmarkPageSaved = false;
     else invokeSafe("bookmark_exists", { url: u }).then((ex) => { bookmarkPageSaved = !!ex; });
+  }
+
+  function handleIdeFocus(payload) {
+    ideBar = payload ?? null;
+    resolveMode();
+  }
+
+  async function copyIdeText(text, e) {
+    e?.stopPropagation();
+    const t = String(text ?? "").trim();
+    if (!t) return false;
+    const ok = await invokeSafe("copy_text_to_clipboard", { text: t });
+    if (ok === true) return true;
+    try {
+      await navigator.clipboard.writeText(t);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function focusIdeWindow(e) {
+    e?.stopPropagation();
+    await invokeSafe("focus_tracked_ide");
   }
 
   /** 后端 SMTC（尤其网易云）常把暂停仍报成 playing；点击播放/暂停时写入覆盖，直到切歌或与后端一致 */
@@ -483,6 +512,7 @@
           if (same) coverUrl = p.url ?? "";
         }),
         await listen("chrome-focus", (e) => handleChromeFocus(e.payload)),
+        await listen("ide-focus", (e) => handleIdeFocus(e.payload)),
       );
       // 启动兜底：主动拉一次当前媒体，避免错过初始 emit
       const { invoke } = await import("@tauri-apps/api/core");
@@ -559,6 +589,7 @@
     overlay?.type === "LowBattery" ? "rgba(255,59,92,0.45)"
     : overlay?.type === "AppToast" ? "rgba(10,132,255,0.32)"
     : mode === "chrome_focus"      ? "rgba(66,133,244,0.22)"
+    : mode === "ide_focus"         ? "rgba(124,92,232,0.24)"
     : sysAccent                   ? `${sysAccent}55`
     : media.accent !== "#a0a0a0"   ? `${media.accent}55`
     : "rgba(255,255,255,0.04)"
@@ -971,6 +1002,10 @@
           canBookmark={canBookmarkFromChrome}
           onBookmark={addCurrentPageBookmark}
         />
+
+      <!-- Cursor / VS Code 前台或最小化托底 -->
+      {:else if mode === "ide_focus" && ideBar}
+        <IdeFollowBar bar={ideBar} onCopyText={copyIdeText} onFocusWindow={focusIdeWindow} />
 
       <!-- media -->
       {:else if mode === "media"}
