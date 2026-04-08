@@ -52,8 +52,9 @@ mod win {
     static SURFACE_CACHE: Mutex<Option<SurfaceCache>> = Mutex::new(None);
 
     const SCRAPE_MIN_INTERVAL: Duration = Duration::from_millis(520);
-    const WALK_MAX_DEPTH: usize = 48;
-    const WALK_MAX_NODES: usize = 650;
+    /// Cursor 等 Electron IDE 无障碍树极大，深度/节点过少会在扫到 Composer 前就截断
+    const WALK_MAX_DEPTH: usize = 64;
+    const WALK_MAX_NODES: usize = 4000;
 
     fn last_slot() -> &'static Mutex<Option<IdeFocusBarPayload>> {
         LAST_EMITTED.get_or_init(|| Mutex::new(None))

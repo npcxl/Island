@@ -8,11 +8,8 @@
    */
   let { bar, onCopyText, onFocusWindow } = $props();
 
-  const iconId = $derived(
-    bar.app_id === "vscode"
-      ? "simple-icons:visualstudiocode"
-      : "vscode-icons:file-type-cursor"
-  );
+  /** Cursor / VS Code 等统一用代码编辑器图标，不区分品牌 */
+  const IDE_ICON = "solar:code-square-bold";
 
   const copySource = $derived.by(() => {
     const t = String(bar.window_title ?? "").trim();
@@ -29,7 +26,7 @@
   });
 
   async function doCopy(e) {
-    const text = copySource();
+    const text = copySource;
     if (!text) return;
     const ok = await onCopyText(text, e);
     if (!ok) return;
@@ -45,7 +42,7 @@
 <div class="ide-row">
   <div class="ide-main">
     <div class="ide-icon" aria-hidden="true">
-      <Icon icon={iconId} width="26" color="rgba(255,255,255,0.92)" />
+      <Icon icon={IDE_ICON} width="26" color="rgba(255,255,255,0.92)" />
     </div>
     <div class="ide-text-col">
       <span class="ide-label">

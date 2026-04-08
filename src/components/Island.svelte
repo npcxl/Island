@@ -63,16 +63,19 @@
     ov_app_toast: { w: 300, h: 80,  r: 22 },
   };
 
+  /** IDE 类应用 Toast 左侧统一图标（与 IdeFollowBar 一致） */
+  const UNIFIED_IDE_ICON = "solar:code-square-bold";
+
   /**
    * 系统 Toast：按 AUMID / 显示名匹配常用应用 Iconify 图标（无系统 Logo 时）。
    * 格式：[子串, iconify id, 可选色] — 越靠前越优先。
    */
   const APP_TOAST_ICON_RULES = [
-    ["anysphere", "vscode-icons:file-type-cursor", null],
-    ["cursor", "vscode-icons:file-type-cursor", null],
+    ["anysphere", UNIFIED_IDE_ICON, "rgba(255,255,255,0.88)"],
+    ["cursor", UNIFIED_IDE_ICON, "rgba(255,255,255,0.88)"],
     ["microsoft teams", "simple-icons:microsoftteams", "#6264A7"],
-    ["visual studio code", "simple-icons:visualstudiocode", "#007ACC"],
-    ["vscode", "simple-icons:visualstudiocode", "#007ACC"],
+    ["visual studio code", UNIFIED_IDE_ICON, "rgba(255,255,255,0.88)"],
+    ["vscode", UNIFIED_IDE_ICON, "rgba(255,255,255,0.88)"],
     ["outlook", "simple-icons:microsoftoutlook", "#0078D4"],
     ["onedrive", "simple-icons:microsoftonedrive", "#0078D4"],
     ["neteasemusic", "simple-icons:neteasemusic", "#E60026"],
