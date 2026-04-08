@@ -5,6 +5,7 @@
   import Icon from "@iconify/svelte";
   import MediaCover from "./MediaCover.svelte";
   import ChromeFollowBar from "./ChromeFollowBar.svelte";
+  import IdeFollowBar from "./IdeFollowBar.svelte";
 
   // ── 核心状态 ─────────────────────────────────────────────
   let media = $state({ title: "", artist: "", thumbnail: "", accent: "#a0a0a0", status: "stopped", position_ms: 0, duration_ms: 0, source: "unknown" });
@@ -49,6 +50,8 @@
     media:      { w: 280, h: 38,  r: 20  },
     /** Chrome 前台跟随（与媒体条同高风格） */
     chrome_focus: { w: 320, h: 72, r: 20 },
+    /** Cursor / VS Code：多一行 context 摘要 */
+    ide_focus:  { w: 320, h: 78, r: 20 },
     expanded:   { w: 360, h: 312, r: 20  },
     ov_volume:  { w: 220, h: 40,  r: 999 },
     ov_caps:    { w: 140, h: 38,  r: 999 },
